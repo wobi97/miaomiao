@@ -2,10 +2,14 @@
     <div class="city_body">
 
 		<div class="city_list">
+				<Loading v-if="isLoading"/>
+
+			<Scroller v-else ref="city_list">
+				<div>
 			<div class="city_hot">
 				<h2>热门城市</h2>
 				<ul class="clearfix">
-					<li v-for="item in hotList" :key ="item.id">{{item.nm}}</li>
+					<li v-for="item in hotList" :key ="item.id" @tap="handleToCity(item.nm,item.id)">{{item.nm}}</li>
 				</ul>
 			</div>
 
@@ -13,10 +17,12 @@
 				<div v-for="item in cityList" :key="item.index">
 					<h2>{{item.index}}</h2>
 					<ul>
-						<li v-for="itemList in item.list" :key="itemList.id">{{ itemList.nm }}</li>
+						<li v-for="itemList in item.list" :key="itemList.id"  @tap="handleToCity(itemList.nm,itemList.id)">{{ itemList.nm }}</li>
 					</ul>
 				</div>
 			</div>
+				</div>
+			</Scroller>
 		</div>
 		<div class="city_index" >
 			<ul>
@@ -32,21 +38,45 @@ export default {
 	data(){
 		return{
 			cityList:[],
-			hotList:[]
+			hotList:[],
+			isLoading : true
 		}
 	},
 	mounted(){
+
+		//获取本地缓存
+		var cityList = window.localStorage.getItem('cityList');
+		var hotList = window.localStorage.getItem('hotList');
+
+		//判断是否有本地缓存
+		if(cityList && hotList){
+			//加载缓存数据
+			this.cityList = JSON.parse(cityList);
+			this.hotList = JSON.parse(hotList);
+			this.isLoading =false;
+		
+		}
+
+		else{
+
+
 		this.axios.get('/api/cityList').then((res)=>{
 				var msg = res.data.msg;
 				if(msg ==='ok'){
+					this.isLoading =false;
 					var cities = res.data.data.cities;
 					//[ { index : 'A' , list : [{ nm : '阿城' , id : 123 }] } ]
 					var { cityList , hotList } = this.formatCityList(cities);
 					this.cityList = cityList;
 					this.hotList = hotList;
+				
+					//本地存储
+					window.localStorage.setItem('cityList',JSON.stringify(cityList));
+					window.localStorage.setItem('hotList',JSON.stringify(hotList));
 				}
 				
 		});
+	}
 	},
 	methods:{
 		formatCityList(cities){
@@ -65,7 +95,7 @@ export default {
 				if(toCom(firstLetter)){//新添加索引
 					cityList.push({ index : firstLetter , list : [{nm : cities[i].nm ,id : cities[i].id} ] })
 				}
-				else //累计添加已有索引
+				else //已经存在的,累计添加已有索引
 				{
 					for(var j = 0;j<cityList.length;j++){
 						if(cityList[j].index === firstLetter){
@@ -112,7 +142,16 @@ export default {
 		},
 		handleToIndex(index){
 			var h2 = this.$refs.city_sort.getElementsByTagName('h2')
-			this.$refs.city_sort.parentNode.scrollTop = h2[index].offsetTop;
+		//	this.$refs.city_sort.parentNode.scrollTop = h2[index].offsetTop;
+			this.$refs.city_list.toScrollTop(-h2[index].offsetTop);
+		},
+		handleToCity(nm,id){
+			console.log(nm,id)
+			this.$store.commit('city/CITY_INFO',{nm,id});
+			//选择完城市跳转到对应的影院
+			window.localStorage.setItem("nowNm",nm);
+			window.localStorage.setItem("nowId",id);
+			this.$router.push('/movie/nowPlaying');
 		}
 	}
 }
